@@ -48,6 +48,13 @@ jobs:
       - name: install dependencies
         run: pnpm install
 
+      - name: setup java
+        if: matrix.args == 'android build'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: setup android
         if: matrix.args == 'android build'
         id: setup-android
