@@ -15,7 +15,7 @@ jobs:
           - platform: 'macos-latest' # for macOS
             args: '--target universal-apple-darwin'
           - platform: 'ubuntu-22.04' # for Android (AAB/APK)
-            args: '--target android'
+            args: 'android build'
           - platform: 'windows-latest' # for Windows
             args: ''
 
@@ -48,10 +48,16 @@ jobs:
       - name: install dependencies
         run: pnpm install
 
+      - name: setup android
+        if: matrix.args == 'android build'
+        id: setup-android
+        uses: android-actions/setup-android@v3
+
       - name: build tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NDK_HOME: ${{ steps.setup-android.outputs.ndk-path }}
         with:
           tagName: v__VERSION__ # the action will replace this with the tag name
           releaseName: 'FlashMesh v__VERSION__'
