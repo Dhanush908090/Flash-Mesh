@@ -16,6 +16,8 @@ interface FileCardProps {
   onDoubleClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onTouchMenu: (e: React.TouchEvent) => void;
+  onTouchMove: (e: React.TouchEvent) => void;
+  onTouchEnd: () => void;
   onTouchMenuCancel: () => void;
   onDrop: (e: React.DragEvent, target: FileEntry) => void;
   onHoverOpenStart: (entry: FileEntry, e: React.MouseEvent) => void;
@@ -26,7 +28,7 @@ interface FileCardProps {
 function FileCard({
   entry, isSelected, isCut, isRenaming, showExtensions,
   onRenameCommit, onRenameCancel,
-  onClick, onDoubleClick, onContextMenu, onTouchMenu, onTouchMenuCancel, onDrop,
+  onClick, onDoubleClick, onContextMenu, onTouchMenu, onTouchMove, onTouchEnd, onTouchMenuCancel, onDrop,
   onHoverOpenStart, onHoverOpenMove, onHoverOpenCancel,
 }: FileCardProps) {
   const [renameVal, setRenameVal] = useState(entry.name);
@@ -44,8 +46,8 @@ function FileCard({
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       onTouchStart={onTouchMenu}
-      onTouchMove={onTouchMenuCancel}
-      onTouchEnd={onTouchMenuCancel}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchMenuCancel}
       data-id={entry.id}
       title={entry.name}
