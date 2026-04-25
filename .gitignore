@@ -1,0 +1,38 @@
+# Node
+node_modules
+dist
+dist-ssr
+*.local
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Tauri/Rust
+src-tauri/target
+src-tauri/binaries
+src-tauri/gen
+
+# Build artifacts & Large files
+*.exe
+*.dmg
+*.app
+*.deb
+*.rpm
+*.iso
+*.zip
+*.tar.gz
+
+# IDEs
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Project specific
+DIAGNOSTIC_REPORT.md
+basic build/
