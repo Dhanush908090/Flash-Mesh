@@ -66,10 +66,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__ # the action will replace this with the tag name
-          releaseName: 'FlashMesh v__VERSION__'
+          tagName: ${{ github.ref_name }}
+          releaseName: 'FlashMesh ${{ github.ref_name }}'
           releaseBody: 'FlashMesh Multi-Platform Build (Automated)'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
 
@@ -84,7 +84,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          draft: true
+          draft: false
           files: |
             src-tauri/gen/android/app/build/outputs/**/*.apk
             src-tauri/gen/android/app/build/outputs/**/*.aab
