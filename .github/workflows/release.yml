@@ -60,11 +60,11 @@ jobs:
         id: setup-android
         uses: android-actions/setup-android@v3
 
-      - name: build tauri app
+      - name: build desktop app
+        if: matrix.platform != 'ubuntu-22.04'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NDK_HOME: ${{ steps.setup-android.outputs.ndk-path }}
         with:
           tagName: v__VERSION__ # the action will replace this with the tag name
           releaseName: 'FlashMesh v__VERSION__'
@@ -72,3 +72,21 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: build android app
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          NDK_HOME: ${{ steps.setup-android.outputs.ndk-path }}
+        run: pnpm tauri android build
+
+      - name: upload android assets
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: |
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+            src-tauri/gen/android/app/build/outputs/**/*.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
