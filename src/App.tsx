@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { AppProvider, useApp } from './store/AppContext';
+import { AppProvider, DEFAULT_PLATFORM_CAPABILITIES, useApp } from './store/AppContext';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
 import { Toolbar } from './components/Toolbar/Toolbar';
@@ -15,6 +15,8 @@ import { showToast } from './components/Toast/Toast';
 import type { FileEntry, Task } from './types';
 import { MobileNav } from './components/Toolbar/MobileNav';
 import { PetView } from './components/Pet/PetView';
+import { DataPoolView } from './components/DataPool/DataPoolView';
+import { dataPoolManager } from './mesh/DataPoolManager';
 import { Cloud } from 'lucide-react';
 import './App.css';
 import { RECENT_PATH } from './utils/path';
@@ -64,6 +66,12 @@ function AppShell() {
     if (!state.previewVisible) setPreviewEntry(null);
   }, [state.previewVisible]);
 
+  useEffect(() => {
+    dataPoolManager.init().catch(err => {
+      console.warn("Failed to initialize DataPoolManager:", err);
+    });
+  }, []);
+
   // ── Detect platform & form factor ────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +88,23 @@ function AppShell() {
       })
       .catch(() => {
         const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-        document.documentElement.dataset.formFactor = coarse ? 'mobile' : 'desktop';
+        const narrow = window.matchMedia?.('(max-width: 760px)').matches ?? false;
+        const isMobile = coarse || narrow;
+        document.documentElement.dataset.platform = isMobile ? 'mobile-web' : 'web';
+        document.documentElement.dataset.formFactor = isMobile ? 'mobile' : 'desktop';
+        dispatch({
+          type: 'SET_PLATFORM',
+          platform: {
+            ...DEFAULT_PLATFORM_CAPABILITIES,
+            os: isMobile ? 'mobile-web' : 'web',
+            family: isMobile ? 'mobile' : 'desktop',
+            isMobile,
+          },
+        });
+        if (isMobile && !mobileSidebarInitialized.current) {
+          mobileSidebarInitialized.current = true;
+          dispatch({ type: 'SET_SIDEBAR_COLLAPSED', value: true });
+        }
       });
     return () => { cancelled = true; };
   }, [dispatch]);
@@ -112,6 +136,12 @@ function AppShell() {
     return () => clearTimeout(t);
   }, [state.platform.os, checkAndRequestPermission]);
 
+  // Stable ref for activeTab to prevent re-registering Tauri listeners
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
   useEffect(() => {
     // Listen for Tauri event emitted by Rust's request_android_permission
     const unlisten = listen('flashmesh:request-permission', () => {
@@ -136,21 +166,37 @@ function AppShell() {
     };
     window.addEventListener('flashmesh:permission-changed', handlePermissionChanged);
     
-    // ── Intercept Mobile Back Button ──────────────────────────────────────
-    const unlistenBack = listen('tauri://back-button', () => {
-      if (activeTab.historyIndex > 0) {
+    // ── Android System Back Button ─────────────────────────────────────────
+    // Kotlin fires 'flashmesh:system-back' when the user presses the OS
+    // back button and canNavigateBack is true. We listen here to perform
+    // the actual file navigation.
+    const handleSystemBack = () => {
+      const currentTab = activeTabRef.current;
+      if (currentTab.historyIndex > 0) {
         dispatch({ type: 'NAVIGATE_BACK' });
-      } else if (activeTab.path !== '/' && activeTab.path !== '/storage/emulated/0') {
+      } else {
         dispatch({ type: 'NAVIGATE_UP' });
       }
-    });
+    };
+    window.addEventListener('flashmesh:system-back', handleSystemBack);
 
     return () => {
       void unlisten.then(fn => fn());
-      void unlistenBack.then(fn => fn());
       window.removeEventListener('flashmesh:permission-changed', handlePermissionChanged);
+      window.removeEventListener('flashmesh:system-back', handleSystemBack);
     };
-  }, [dispatch, activeTab.historyIndex, activeTab.path]);
+  }, [dispatch]);
+
+  // ── Tell Kotlin whether we can navigate back ────────────────────────────
+  // This runs on every path change and synchronously sets a flag in Kotlin
+  // so the back button handler knows instantly whether to navigate or close.
+  useEffect(() => {
+    if (state.platform.os !== 'android') return;
+    const bridge = (window as any).AndroidPermissionBridge;
+    if (!bridge?.updateBackState) return;
+    const canGoBack = activeTab.path !== '/' && activeTab.path !== '/storage/emulated/0';
+    try { bridge.updateBackState(canGoBack); } catch (_) {}
+  }, [activeTab.path, state.platform.os]);
 
   // ── File Operation Progress Listener ────────────────────────────────────
   useEffect(() => {
@@ -206,6 +252,10 @@ function AppShell() {
   useEffect(() => {
     const root = document.documentElement;
     const applyTheme = () => {
+      if (state.settings.theme === 'elevanix') {
+        root.dataset.theme = 'elevanix';
+        return;
+      }
       const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
       const resolved = state.settings.theme === 'system'
         ? (prefersLight ? 'light' : 'dark')
@@ -277,6 +327,10 @@ function AppShell() {
               Manage Accounts
            </button>
         </div>
+      )}
+
+      {state.currentView === 'pool' && (
+        <DataPoolView />
       )}
 
       {state.currentView === 'pet' && (

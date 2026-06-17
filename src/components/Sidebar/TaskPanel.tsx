@@ -213,7 +213,7 @@ export function TaskPanel() {
           />
         </div>
         <span className="task-panel__total-pct">
-          {allDone ? '✓' : `${totalPct}%`}
+          {allDone ? <CheckCircle2 size={13} /> : `${totalPct}%`}
         </span>
       </div>
 

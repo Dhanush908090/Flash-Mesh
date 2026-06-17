@@ -54,7 +54,10 @@ pub fn get_platform_capabilities() -> PlatformCapabilities {
 pub fn check_android_permission() -> bool {
     #[cfg(target_os = "android")]
     {
-        std::fs::read_dir("/storage/emulated/0").is_ok()
+        match std::fs::read_dir("/storage/emulated/0") {
+            Ok(mut rd) => rd.next().is_some(),
+            Err(_) => false,
+        }
     }
     #[cfg(not(target_os = "android"))]
     {

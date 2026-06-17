@@ -110,6 +110,12 @@ export const opsApi = {
   readTextFile: (path: string, maxBytes = 65536): Promise<string> =>
     invoke('read_text_file', { path, maxBytes }),
 
+  readBinaryFile: (path: string): Promise<Uint8Array> =>
+    invoke('read_binary_file', { path }),
+
+  writeBinaryFile: (path: string, contents: number[] | Uint8Array): Promise<void> =>
+    invoke('write_binary_file', { path, contents: Array.from(contents) }),
+
   openItem: (path: string): Promise<void> =>
     invoke('open_item', { path }),
 
@@ -176,6 +182,20 @@ export const terminalApi = {
     invoke('open_terminal', { path }),
 };
 
+// ─── Sharing & Streaming ───────────────────────────────────────────────────────
+
+export function start_share_server(path: string): Promise<string> {
+  return invoke('start_share_server', { path });
+}
+
+export function stop_share_server(): Promise<void> {
+  return invoke('stop_share_server');
+}
+
+export function get_share_status(): Promise<string | null> {
+  return invoke('get_share_status');
+}
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export function onFileOperationProgress(
@@ -207,17 +227,17 @@ export function getFileCategory(entry: FileEntry): FileCategory {
 }
 
 const CATEGORY_ICONS: Record<FileCategory, string> = {
-  folder:  '📁',
-  image:   '🖼️',
-  video:   '🎬',
-  audio:   '🎵',
-  pdf:     '📕',
-  archive: '🗜️',
-  code:    '📄',
-  text:    '📝',
-  exec:    '⚡',
-  data:    '🗃️',
-  other:   '📄',
+  folder:  'Folder',
+  image:   'Image',
+  video:   'Video',
+  audio:   'Audio',
+  pdf:     'PDF',
+  archive: 'Archive',
+  code:    'Code',
+  text:    'Text',
+  exec:    'App',
+  data:    'Data',
+  other:   'File',
 };
 
 export function getFileIcon(entry: FileEntry): string {
@@ -262,3 +282,57 @@ export function formatDiskSize(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
+
+// ─── Data Pools API ───────────────────────────────────────────────────────────
+
+export interface PoolMember {
+  fingerprint: string;
+  nickname: string;
+  joined_at: string;
+  quota_bytes: number;
+}
+
+export interface DataPool {
+  id: string;
+  name: string;
+  owner_fp: string;
+  hub_folder_id: string;
+  inbox_folder_id: string;
+  members: PoolMember[];
+  total_size: number;
+  used_size: number;
+  status: string;
+  created_at: string;
+}
+
+export interface InboxProcessResult {
+  processed_count: number;
+  failed_count: number;
+  errors: string[];
+}
+
+export const poolApi = {
+  listPools: (): Promise<DataPool[]> =>
+    invoke('list_pools'),
+
+  createPool: (name: string, hubFolderId: string): Promise<DataPool> =>
+    invoke('create_pool', { name, hubFolderId }),
+
+  processPoolInbox: (poolId: string, proposals: any[], currentManifestJson: string): Promise<[string, InboxProcessResult]> =>
+    invoke('process_pool_inbox', { poolId, proposals, currentManifestJson }),
+
+  generatePoolInvite: (poolId: string, hubFolderId: string): Promise<string> =>
+    invoke('generate_pool_invite', { poolId, hubFolderId }),
+
+  joinPoolFromInvite: (inviteLink: string): Promise<DataPool> =>
+    invoke('join_pool_from_invite', { inviteLink }),
+};
+
+export function get_image_thumbnail(path: string): Promise<string> {
+  return invoke('get_image_thumbnail', { path });
+}
+
+export function get_extended_metadata(path: string): Promise<any> {
+  return invoke('get_extended_metadata', { path });
+}
+

@@ -81,7 +81,7 @@
 
 .task-panel__total-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), #6366f1);
+  background: linear-gradient(90deg, var(--accent), #38bdf8);
   border-radius: 3px;
   transition: width 0.4s ease;
   position: relative;
@@ -155,7 +155,7 @@
 }
 
 .task-item--running {
-  border-color: rgba(var(--accent-rgb, 99 102 241) / 0.25);
+  border-color: rgba(var(--accent-rgb, 96 165 250) / 0.25);
 }
 
 .task-item--completed {
@@ -245,7 +245,7 @@
 
 .task-item__progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), #818cf8);
+  background: linear-gradient(90deg, var(--accent), #93c5fd);
   border-radius: 2px;
   transition: width 0.35s ease;
 }

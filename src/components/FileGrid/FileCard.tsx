@@ -1,7 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import { FileIcon } from '../FileIcon/FileIcon';
 import { getDisplayName } from '../../utils/fileDisplay';
 import type { FileEntry } from '../../types';
+import { get_image_thumbnail } from '../../api/tauri';
+import { motion } from 'framer-motion';
+
+// File extensions that we can show as inline thumbnails
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'svg', 'ico']);
+
+function isImageFile(entry: FileEntry): boolean {
+  if (entry.isDir) return false;
+  const ext = entry.extension?.toLowerCase();
+  return !!(ext && IMAGE_EXTS.has(ext));
+}
+
+// ── Thumbnail sub-component ──────────────────────────────────────────────────
+function ImageThumbnail({ entry }: { entry: FileEntry }) {
+  const [src, setSrc] = useState('');
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setErrored(false);
+    
+    get_image_thumbnail(entry.path)
+      .then((thumbnailSrc) => {
+        if (active) {
+          setSrc(thumbnailSrc);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setErrored(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [entry.path]);
+
+  if (!src || errored) {
+    return <FileIcon entry={entry} size={36} />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={entry.name}
+      className="file-card__thumbnail"
+      onError={() => setErrored(true)}
+      draggable={false}
+    />
+  );
+}
 
 export interface FileCardProps {
   entry: FileEntry;
@@ -31,6 +84,7 @@ export function FileCard({
   onHoverOpenStart, onHoverOpenMove, onHoverOpenCancel,
 }: FileCardProps) {
   const [renameVal, setRenameVal] = useState(entry.name);
+  const showThumbnail = isImageFile(entry);
 
   const commitRename = () => {
     const n = renameVal.trim();
@@ -39,8 +93,15 @@ export function FileCard({
   };
 
   return (
-    <div
-      className={`file-card${isSelected ? ' file-card--selected' : ''}${isCut ? ' file-card--cut' : ''}${isRenaming ? ' file-card--renaming' : ''}${entry.isDir ? ' file-card--folder' : ' file-card--file'}`}
+    <motion.div
+      className={[
+        'file-card',
+        isSelected ? 'file-card--selected' : '',
+        isCut ? 'file-card--cut' : '',
+        isRenaming ? 'file-card--renaming' : '',
+        entry.isDir ? 'file-card--folder' : 'file-card--file',
+        showThumbnail ? 'file-card--image' : '',
+      ].filter(Boolean).join(' ')}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
@@ -51,13 +112,11 @@ export function FileCard({
       data-id={entry.id}
       title={entry.name}
       draggable
-      onDragStart={e => {
+      onDragStart={(e: any) => {
         e.dataTransfer.effectAllowed = 'copyMove';
         e.dataTransfer.setData('text/plain', entry.id);
       }}
-      onDragOver={e => {
-        if (entry.isDir) e.preventDefault();
-      }}
+      onDragOver={e => { if (entry.isDir) e.preventDefault(); }}
       onDrop={e => onDrop(e, entry)}
       onMouseEnter={e => onHoverOpenStart(entry, e)}
       onMouseMove={onHoverOpenMove}
@@ -65,10 +124,17 @@ export function FileCard({
       role="button"
       aria-label={entry.name}
       tabIndex={-1}
+      layout
+      whileHover={{ scale: 1.04, y: -3 }}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 22 }}
     >
-      <div className="file-card__check">✓</div>
+      <div className="file-card__check"><Check size={10} strokeWidth={2.4} /></div>
       <div className="file-card__icon">
-        <FileIcon entry={entry} size={32} />
+        {showThumbnail
+          ? <ImageThumbnail entry={entry} />
+          : <FileIcon entry={entry} size={36} />
+        }
       </div>
       {isRenaming ? (
         <input
@@ -86,6 +152,6 @@ export function FileCard({
       ) : (
         <span className="file-card__name">{getDisplayName(entry, showExtensions)}</span>
       )}
-    </div>
+    </motion.div>
   );
 }

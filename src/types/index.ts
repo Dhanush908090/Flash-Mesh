@@ -12,6 +12,10 @@ export interface FileEntry {
   isHidden: boolean;
   isSymlink: boolean;
   mimeType: string | null;
+  provider?: 'local' | 'google' | 'dropbox' | 'pool';
+  isPoolFile?: boolean;
+  poolId?: string;
+  isPending?: boolean;
 }
 
 export interface DriveInfo {
@@ -79,6 +83,7 @@ export interface Task {
 export interface ClipboardState {
   items: FileEntry[];
   operation: 'copy' | 'cut' | null;
+  sourceProvider?: 'local' | 'google' | 'dropbox' | 'pool';
 }
 
 export interface FileOperation {
@@ -111,7 +116,7 @@ export interface AppSettings {
   defaultView: ViewMode;
   showHiddenFiles: boolean;
   showFileExtensions: boolean;
-  theme: 'dark' | 'light' | 'system';
+  theme: 'dark' | 'light' | 'system' | 'elevanix';
   confirmBeforeDelete: boolean;
   startupFolder: string;
   sidebarWidth: number;
@@ -124,6 +129,11 @@ export interface AppSettings {
   autoErrorReporting: boolean;
   userEmail: string;
   dragDropAction: 'ask' | 'move' | 'copy';
+  omnitrixMenu: boolean;
+  turboMode: boolean;
+  concurrencyLimit: number;
+  chunkSizeRange: '1-3mb' | 'fixed-2mb';
+  encryptionStrategy: 'adaptive' | 'aes-gcm' | 'aes-cbc-hmac' | 'none';
 }
 
 export type DialogType =
@@ -132,6 +142,7 @@ export type DialogType =
   | { kind: 'newFolder'; parentPath: string }
   | { kind: 'properties'; entry: FileEntry }
   | { kind: 'dragDrop'; sourcePaths: string[]; destination: string }
+  | { kind: 'share'; entry: FileEntry }
   | { kind: 'none' };
 
 export interface ContextMenuState {

@@ -132,12 +132,12 @@ export function useDragSelect(onSelectionChange: (selectedIds: Set<string>) => v
     transform: `translate(${Math.min(dragBox.startX, dragBox.curX)}px, ${Math.min(dragBox.startY, dragBox.curY)}px)`,
     width:  Math.abs(dragBox.curX - dragBox.startX),
     height: Math.abs(dragBox.curY - dragBox.startY),
-    backgroundColor: 'rgba(99, 102, 241, 0.18)',
-    border: '1.5px solid rgba(99, 102, 241, 0.75)',
+    backgroundColor: 'rgba(96, 165, 250, 0.18)',
+    border: '1.5px solid rgba(96, 165, 250, 0.75)',
     borderRadius: '3px',
     pointerEvents: 'none',
     zIndex: 9999,
-    boxShadow: '0 0 12px rgba(99, 102, 241, 0.15)',
+    boxShadow: '0 0 12px rgba(96, 165, 250, 0.15)',
   } : undefined;
 
   return {

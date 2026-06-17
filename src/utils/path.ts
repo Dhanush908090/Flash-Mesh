@@ -20,7 +20,7 @@ function separatorFor(path: string): '/' | '\\' {
 export function normalizePath(path: string): string {
   if (!path) return '/';
   if (isVirtualPath(path)) return path;
-  let p = path.trim();
+  let p = path;
   if (!p) return '/';
 
   const sep = separatorFor(p);

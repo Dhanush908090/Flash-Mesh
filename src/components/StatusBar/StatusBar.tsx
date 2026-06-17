@@ -1,4 +1,5 @@
 import React from 'react';
+import { Clipboard } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import type { ProgressEvent } from '../../api/tauri';
 
@@ -39,7 +40,8 @@ export function StatusBar({ itemCount, totalSize, progress }: StatusBarProps) {
         )}
         {state.clipboard.operation && (
           <span className="status-bar__clipboard">
-            📋 {state.clipboard.items.length} item{state.clipboard.items.length !== 1 ? 's' : ''} {state.clipboard.operation === 'cut' ? 'cut' : 'copied'}
+            <Clipboard size={12} />
+            {state.clipboard.items.length} item{state.clipboard.items.length !== 1 ? 's' : ''} {state.clipboard.operation === 'cut' ? 'cut' : 'copied'}
           </span>
         )}
         <span className="status-bar__path">{activeTab.path}</span>

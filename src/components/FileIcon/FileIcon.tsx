@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Folder, File, Image, Film, Music, Archive, FileCode, FileText, Table, Terminal, 
   FolderIcon, FileIcon as LucideFile, FileImage, FileVideo, FileAudio, FileArchive, 
@@ -11,6 +11,23 @@ import type { FileEntry } from '../../types';
 interface FileIconProps {
   entry: FileEntry;
   size?: number;
+}
+
+function PngIcon({ path, alt, size, fallback }: { path: string; alt: string; size: number; fallback: React.ReactNode }) {
+  const [errored, setErrored] = useState(false);
+
+  if (errored) return <>{fallback}</>;
+
+  return (
+    <img
+      src={path}
+      alt={alt}
+      className="file-icon-3d"
+      style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+      onError={() => setErrored(true)}
+      draggable={false}
+    />
+  );
 }
 
 export function FileIcon({ entry, size = 18 }: FileIconProps) {
@@ -45,15 +62,46 @@ export function FileIcon({ entry, size = 18 }: FileIconProps) {
 
   const props = { ...common, color, className };
 
-  if (entry.isDir) return <Folder {...props} fill={fill} style={{ ...common.style, opacity }} />;
-  if (category === 'image') return <FileImage {...props} />;
-  if (category === 'video') return <FileVideo {...props} />;
-  if (category === 'audio') return <FileAudio {...props} />;
-  if (category === 'archive') return <Box {...props} />;
-  if (category === 'code') return <FileCode {...props} />;
-  if (category === 'text' || category === 'pdf') return <FileText {...props} />;
-  if (category === 'data') return <FileSpreadsheet {...props} />;
-  if (category === 'exec') return <Terminal {...props} />;
-  return <LucideFile {...props} />;
+  const getFallbackIcon = () => {
+    if (entry.isDir) return <Folder {...props} fill={fill} style={{ ...common.style, opacity }} />;
+    if (category === 'image') return <FileImage {...props} />;
+    if (category === 'video') return <FileVideo {...props} />;
+    if (category === 'audio') return <FileAudio {...props} />;
+    if (category === 'archive') return <Box {...props} />;
+    if (category === 'code') return <FileCode {...props} />;
+    if (category === 'text' || category === 'pdf') return <FileText {...props} />;
+    if (category === 'data') return <FileSpreadsheet {...props} />;
+    if (category === 'exec') return <Terminal {...props} />;
+    return <LucideFile {...props} />;
+  };
+
+  const use3DIcons = pkg !== 'minimal' && pkg !== 'sharp';
+
+  if (use3DIcons) {
+    let iconName = 'file';
+    if (entry.isDir) {
+      if (entry.path === '__trash__') iconName = 'trash';
+      else iconName = 'folder';
+    } else {
+      switch (category) {
+        case 'image': iconName = 'image'; break;
+        case 'video': iconName = 'video'; break;
+        case 'audio': iconName = 'audio'; break;
+        case 'code': iconName = 'code'; break;
+        case 'archive': iconName = 'archive'; break;
+        default: iconName = 'file'; break;
+      }
+    }
+    return (
+      <PngIcon
+        path={`/icons/${iconName}.png`}
+        alt={`${category} icon`}
+        size={size}
+        fallback={getFallbackIcon()}
+      />
+    );
+  }
+
+  return getFallbackIcon();
 }
 

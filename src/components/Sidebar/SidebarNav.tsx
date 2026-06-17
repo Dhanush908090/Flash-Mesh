@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import {
   Home, Download, FileText, Image, Film, Music,
   Star, HardDrive, ChevronDown, ChevronRight,
-  Laptop, Clock, Plus, X, Trash2, Smartphone
+  Laptop, Clock, Plus, X, Trash2, Smartphone, Database
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { useDrives, formatDiskSize } from '../../hooks/useDrives';
@@ -31,6 +31,10 @@ function NavSection({ title, items, defaultOpen = true, renderSuffix }: SectionP
   const { navigate, activeTab, state, dispatch } = useApp();
 
   const handleNavigate = (path: string) => {
+    // Always switch back to files view so pool/cloud/pet views don't trap the user
+    if (state.currentView !== 'files') {
+      dispatch({ type: 'SET_VIEW', view: 'files' });
+    }
     navigate(path);
     if (state.platform.isMobile) {
       dispatch({ type: 'SET_SIDEBAR_COLLAPSED', value: true });
@@ -118,6 +122,9 @@ function DrivesSection() {
                       showToast({ message: 'Drive path is unavailable.' });
                       return;
                     }
+                    if (state.currentView !== 'files') {
+                      dispatch({ type: 'SET_VIEW', view: 'files' });
+                    }
                     navigate(targetPath);
                     if (state.platform.isMobile) {
                       dispatch({ type: 'SET_SIDEBAR_COLLAPSED', value: true });
@@ -132,7 +139,9 @@ function DrivesSection() {
                       : `${label} - Not mounted`
                   }
                 >
-                  <span className="nav-item__icon"><HardDrive size={18} /></span>
+                  <span className="nav-item__icon">
+                    <img src="/icons/drive.png" style={{ width: 18, height: 18, objectFit: 'contain', display: 'block' }} alt="Drive" />
+                  </span>
                   <div className="nav-item__drive-info">
                     <span className="nav-item__label">{displayLabel}</span>
                     <span className="nav-item__drive-path">{location}</span>
@@ -162,7 +171,7 @@ function DrivesSection() {
 
 function CloudSection() {
   const [open, setOpen] = useState(true);
-  const { navigate, activeTab } = useApp();
+  const { navigate, activeTab, state, dispatch } = useApp();
   const [quota, setQuota] = useState<{ usedSpace: number, totalSpace: number } | null>(null);
 
   // Attempt to fetch combined quotas periodically
@@ -190,10 +199,15 @@ function CloudSection() {
       <li>
         <button
           className={`nav-item nav-item--drive${isActive ? ' nav-item--active' : ''}`}
-          onClick={() => navigate(targetPath)}
+          onClick={() => {
+            if (state.currentView !== 'files') dispatch({ type: 'SET_VIEW', view: 'files' });
+            navigate(targetPath);
+          }}
           title={`FlashMesh Cloud - ${quota ? formatDiskSize(quota.totalSpace - quota.usedSpace) : '...'} free of ${quota ? formatDiskSize(quota.totalSpace) : '...'}`}
         >
-          <span className="nav-item__icon"><Cloud size={16} color="#3b82f6" /></span>
+          <span className="nav-item__icon">
+            <img src="/icons/cloud.png" style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }} alt="Cloud" />
+          </span>
           <div className="nav-item__drive-info">
             <span className="nav-item__label">FlashMesh Cloud</span>
             <span className="nav-item__drive-path">{`mesh://root`}</span>
@@ -309,6 +323,9 @@ export function SidebarNav() {
               <button
                 className={`nav-item${activeTab.path === item.path ? ' nav-item--active' : ''}`}
                 onClick={() => {
+                  if (state.currentView !== 'files') {
+                    dispatch({ type: 'SET_VIEW', view: 'files' });
+                  }
                   dispatch({ type: 'NAVIGATE', path: item.path });
                   if (state.platform.isMobile) {
                     dispatch({ type: 'SET_SIDEBAR_COLLAPSED', value: true });
@@ -338,7 +355,25 @@ export function SidebarNav() {
       </div>
 
       <DrivesSection />
-      {/* <CloudSection /> */}
+      <CloudSection />
+
+      {/* ── Data Pools ─────────────────────────────────── */}
+      <div className="nav-section">
+        <button
+          className={`nav-item${
+            state.currentView === 'pool' ? ' nav-item--active' : ''
+          }`}
+          onClick={() => {
+            dispatch({ type: 'SET_VIEW', view: 'pool' });
+            if (state.platform.isMobile) dispatch({ type: 'SET_SIDEBAR_COLLAPSED', value: true });
+          }}
+          title="Collaborative encrypted shared vaults"
+          style={{ margin: '6px 8px', borderRadius: 'var(--radius-md)', width: 'calc(100% - 16px)' }}
+        >
+          <span className="nav-item__icon"><Database size={16} color={state.currentView === 'pool' ? 'var(--accent)' : undefined} /></span>
+          <span className="nav-item__label">Data Pools</span>
+        </button>
+      </div>
     </nav>
   );
 }

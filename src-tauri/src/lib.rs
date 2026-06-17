@@ -3,16 +3,23 @@ pub mod commands;
 use commands::drives::get_drives;
 use commands::fs::{
     empty_trash, get_file_metadata, get_home_dir, get_special_dirs, list_directory, list_trash,
+    get_image_thumbnail, get_extended_metadata,
 };
 use commands::operations::{
     copy_items, create_file, create_folder, delete_items, move_items, open_item, open_item_with,
-    read_text_file, rename_item, cancel_operation,
+    read_text_file, read_binary_file, write_binary_file, rename_item, cancel_operation,
 };
 use commands::platform::{
     check_android_permission, get_platform_capabilities, request_android_permission,
 };
 use commands::search::{list_recent_files, search_files};
 use commands::terminal::{open_terminal, path_join, path_separator};
+use commands::pool::{
+    create_pool, generate_pool_invite, join_pool_from_invite,
+    list_pools, process_pool_inbox,
+};
+use commands::oauth::start_oauth_server;
+use commands::share::{start_share_server, stop_share_server, get_share_status};
 
 #[cfg(not(mobile))]
 use tauri::image::Image;
@@ -44,6 +51,8 @@ pub fn run() {
             get_file_metadata,
             list_trash,
             empty_trash,
+            get_image_thumbnail,
+            get_extended_metadata,
             // Operations
             copy_items,
             move_items,
@@ -53,6 +62,8 @@ pub fn run() {
             create_folder,
             create_file,
             read_text_file,
+            read_binary_file,
+            write_binary_file,
             open_item,
             open_item_with,
             // Search
@@ -68,6 +79,18 @@ pub fn run() {
             get_platform_capabilities,
             check_android_permission,
             request_android_permission,
+            // Data Pools
+            list_pools,
+            create_pool,
+            process_pool_inbox,
+            generate_pool_invite,
+            join_pool_from_invite,
+            // OAuth
+            start_oauth_server,
+            // Share
+            start_share_server,
+            stop_share_server,
+            get_share_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

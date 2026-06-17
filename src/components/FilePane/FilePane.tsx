@@ -13,7 +13,11 @@ import { getBaseName, getParentPath, RECENT_PATH, TRASH_PATH } from '../../utils
 import type { FileEntry, SortField, FileOperation, Task } from '../../types';
 import type { DirListing, SearchResult, ProgressEvent } from '../../api/tauri';
 import { meshEngine } from '../../mesh/MeshEngine';
+import { MSTIndexManager, IndexedEntry } from '../../mesh/mst';
 import { Dashboard } from '../Dashboard/Dashboard';
+import { executePaste, determinePasteStrategy, CloudProvider } from '../../mesh/ClipboardBridge';
+import { dataPoolManager } from '../../mesh/DataPoolManager';
+import { googleAdapter, dropboxAdapter } from '../../mesh/MeshEngine';
 
 function sortEntries(entries: FileEntry[], field: SortField, dir: 'asc' | 'desc'): FileEntry[] {
   const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
@@ -40,6 +44,7 @@ interface FilePaneProps {
 
 export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProps) {
   const { activeTab, navigate, dispatch, state } = useApp();
+  const mstIndex = useMemo(() => new MSTIndexManager(), []);
   const [listing, setListing] = useState<DirListing | null>(null);
   const [homeDir, setHomeDir] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -112,6 +117,78 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
           parent: cloudPath ? `mesh://root${cloudPath.substring(0, cloudPath.lastIndexOf('/')) || '/'}` : null,
           error: null
         });
+      } else if (path.startsWith('pool://')) {
+        const parts = path.substring('pool://'.length).split('/');
+        const poolId = parts[0];
+        const folderId = parts[1] || null;
+        
+        let poolItems = { folders: [] as any[], files: [] as any[] };
+        try {
+          poolItems = dataPoolManager.getPoolContents(poolId, folderId);
+        } catch (err: any) {
+          throw new Error(`Pool fetch failed: ${err.message || String(err)}`);
+        }
+
+        const entries: FileEntry[] = [];
+        
+        for (const f of poolItems.folders) {
+          entries.push({
+            id: f.id,
+            name: f.name,
+            path: `pool://${poolId}/${f.id}`,
+            isDir: true,
+            size: null,
+            modified: null,
+            created: f.created ? new Date(f.created).toISOString() : null,
+            extension: null,
+            isHidden: false,
+            isSymlink: false,
+            mimeType: null,
+            provider: 'pool',
+            isPoolFile: true,
+            poolId: poolId
+          });
+        }
+
+        for (const f of poolItems.files) {
+          entries.push({
+            id: f.id,
+            name: f.name,
+            path: `pool://${poolId}/${f.id}`,
+            isDir: false,
+            size: f.size,
+            modified: f.modified || (f.uploadedAt ? new Date(f.uploadedAt).toISOString() : null),
+            created: f.created || null,
+            extension: f.extension || f.name.split('.').pop() || '',
+            isHidden: false,
+            isSymlink: false,
+            mimeType: f.mimeType || 'application/octet-stream',
+            provider: 'pool',
+            isPoolFile: true,
+            poolId: poolId,
+            isPending: f.isPending
+          });
+        }
+
+        let parentPath: string | null = null;
+        if (folderId) {
+          const pool = dataPoolManager.pools.get(poolId);
+          const currentFolder = pool?.folders?.find((x: any) => x.id === folderId);
+          if (currentFolder) {
+            parentPath = currentFolder.parentFolderId
+              ? `pool://${poolId}/${currentFolder.parentFolderId}`
+              : `pool://${poolId}`;
+          } else {
+            parentPath = `pool://${poolId}`;
+          }
+        }
+
+        setListing({
+          path,
+          entries,
+          parent: parentPath,
+          error: null
+        });
       } else {
         const data = await fsApi.listDirectory(path, state.settings.showHiddenFiles);
         setListing(data);
@@ -171,9 +248,26 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
     }, 250);
   }, [state.searchQuery, state.isSearching, activeTab.path, state.settings.showHiddenFiles, homeDir]);
 
-  const rawEntries: FileEntry[] = state.isSearching
-    ? searchResults.map(r => r.entry)
-    : (listing?.entries ?? []);
+  useEffect(() => {
+    if (listing?.entries) {
+      const indexed: IndexedEntry[] = listing.entries.map(e => ({
+        key: e.name,
+        value: e
+      }));
+      mstIndex.buildIndex(indexed);
+    }
+  }, [listing?.entries, mstIndex]);
+
+  const rawEntries: FileEntry[] = useMemo(() => {
+    if (state.isSearching && state.searchQuery.trim()) {
+      const tokenMatches = mstIndex.searchByToken(state.searchQuery);
+      if (tokenMatches.length > 0) {
+        return tokenMatches.map(m => m.value as FileEntry);
+      }
+      return searchResults.map(r => r.entry);
+    }
+    return listing?.entries ?? [];
+  }, [state.isSearching, state.searchQuery, searchResults, listing?.entries, mstIndex]);
 
   const entries = useMemo(
     () => sortEntries(rawEntries, activeTab.sortConfig.field, activeTab.sortConfig.direction),
@@ -190,16 +284,73 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
   useEffect(() => {
     const selected = entries.find(e => activeTab.selection.has(e.id)) ?? null;
     onPreviewEntryChange(selected);
-  }, [entries, activeTab.selection, onPreviewEntryChange]);
+    if (selected && !selected.isDir) {
+      if (!state.previewVisible) {
+        dispatch({ type: 'TOGGLE_PREVIEW' });
+      }
+    }
+  }, [entries, activeTab.selection, onPreviewEntryChange, state.previewVisible, dispatch]);
 
   useEffect(() => {
     setFocusedIndex(0);
   }, [activeTab.path, state.searchQuery, state.isSearching]);
 
-  const handleOpen = useCallback((entry: FileEntry) => {
+  const handleOpen = useCallback(async (entry: FileEntry) => {
     dispatch({ type: 'RECORD_RECENT', path: entry.path });
     if (entry.isDir) {
       navigate(entry.path);
+    } else if (entry.path.startsWith('pool://')) {
+      const parts = entry.path.substring('pool://'.length).split('/');
+      const poolId = parts[0];
+      const fileId = parts[1];
+      showToast({ message: `Downloading ${entry.name} from pool...` });
+      try {
+        const blob = await dataPoolManager.downloadFromPool(poolId, fileId);
+        const dirs = await fsApi.getSpecialDirs();
+        const baseDir = dirs.downloads || homeDir || '.';
+        const fullPath = joinPathSync(baseDir, entry.name);
+        const arrayBuf = await blob.arrayBuffer();
+        await opsApi.writeBinaryFile(fullPath, new Uint8Array(arrayBuf));
+        showToast({ message: `Downloaded to ${entry.name}. Opening...` });
+        await opsApi.openItem(fullPath);
+      } catch (err: any) {
+        showToast({ message: `Failed to open pool file: ${err.message || String(err)}` });
+      }
+    } else if (entry.path.startsWith('mesh://')) {
+      showToast({ message: `Downloading ${entry.name} from cloud...` });
+      try {
+        const defaultKeyMaterial = new TextEncoder().encode('flashmesh-default-mesh-passphrase-master-v1').buffer;
+        const adapter = entry.provider === 'google' ? googleAdapter : dropboxAdapter;
+        
+        const downloadManifest = async (adapter: any, fileName: string): Promise<string> => {
+          const dec = new TextDecoder();
+          if (adapter.provider === 'google') {
+            const files = await adapter.listFolder('');
+            const found = files.find((f: any) => f.name === fileName);
+            if (!found) throw new Error(`Manifest not found: ${fileName}`);
+            const buf = await adapter.downloadChunk(found.id);
+            return dec.decode(buf);
+          } else {
+            const path = `/FlashMesh/Manifests/${fileName}`;
+            const buf = await adapter.downloadChunk(path);
+            return dec.decode(buf);
+          }
+        };
+
+        const manifestJson = await downloadManifest(adapter, `${entry.name}.oro`);
+        const manifest = JSON.parse(manifestJson);
+        const blob = await meshEngine.downloadFile(manifest, defaultKeyMaterial);
+        
+        const dirs = await fsApi.getSpecialDirs();
+        const baseDir = dirs.downloads || homeDir || '.';
+        const fullPath = joinPathSync(baseDir, entry.name);
+        const arrayBuf = await blob.arrayBuffer();
+        await opsApi.writeBinaryFile(fullPath, new Uint8Array(arrayBuf));
+        showToast({ message: `Downloaded to ${entry.name}. Opening...` });
+        await opsApi.openItem(fullPath);
+      } catch (err: any) {
+        showToast({ message: `Failed to open cloud file: ${err.message || String(err)}` });
+      }
     } else {
       const bridge = (window as any).AndroidPermissionBridge || (window as any).AndroidBridge;
       if (state.platform.os === 'android' && bridge?.openFile) {
@@ -208,7 +359,7 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
         opsApi.openItem(entry.path).catch(e => showToast({ message: `Open failed: ${e}` }));
       }
     }
-  }, [navigate, dispatch, state.platform.os]);
+  }, [navigate, dispatch, state.platform.os, homeDir]);
 
   const cancelHoverOpen = useCallback(() => {
     if (hoverOpenTimer.current) clearTimeout(hoverOpenTimer.current);
@@ -277,52 +428,79 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
   const handlePaste = useCallback(() => {
     const { clipboard } = state;
     if (!clipboard.operation || clipboard.items.length === 0 || activeTab.path === RECENT_PATH) return;
-    const sources = clipboard.items.map(i => i.path);
+    
     const opId = crypto.randomUUID();
     const isCopy = clipboard.operation === 'copy';
     const destPath = activeTab.path;
 
     const task: Task = {
       id: opId,
-      label: `${isCopy ? 'Copying' : 'Moving'} ${sources.length} item${sources.length > 1 ? 's' : ''}`,
+      label: `${isCopy ? 'Copying' : 'Moving'} ${clipboard.items.length} item${clipboard.items.length > 1 ? 's' : ''}`,
       status: 'running',
       progress: 0,
       startTime: Date.now(),
     };
     dispatch({ type: 'ADD_TASK', task });
 
+    // Clear clipboard if cut
     if (!isCopy) {
       dispatch({ type: 'CLEAR_CLIPBOARD' });
-      const moved = sources.map(s => ({
-        from: s,
-        to: joinPathSync(destPath, getBaseName(s)),
-      }));
-      const sourceParents = [...new Set(sources.map(getParentPath))];
-      if (sourceParents.length === 1) {
-        pushUndo({
-          id: opId,
-          kind: 'move',
-          label: `Move ${sources.length} item${sources.length > 1 ? 's' : ''}`,
-          timestamp: Date.now(),
-          undo: { type: 'move', sources: moved.map(m => m.to), destination: sourceParents[0] },
-          redo: { type: 'move', sources, destination: destPath },
-        });
-      }
     }
 
-    // Fire-and-forget: Rust returns immediately; actual work runs on a background thread
+    // Resolve providers
+    const clipboardFiles = clipboard.items.map(item => {
+      let provider: CloudProvider = 'local';
+      if (item.path.startsWith('pool://')) {
+        provider = 'pool';
+      } else if (item.path.startsWith('mesh://')) {
+        provider = item.provider || 'google';
+      }
+      return {
+        path: item.path,
+        name: item.name,
+        size: item.size || 0,
+        provider
+      };
+    });
+
+    let destProvider: CloudProvider = 'local';
+    if (destPath.startsWith('pool://')) {
+      destProvider = 'pool';
+    } else if (destPath.startsWith('mesh://')) {
+      destProvider = 'google';
+    }
+
+    const strategy = determinePasteStrategy(
+      clipboardFiles[0]?.provider || 'local',
+      destProvider
+    );
+
     setTimeout(async () => {
       try {
-        if (isCopy) {
-          await opsApi.copyItems(sources, destPath, opId);
+        const result = await executePaste(
+          clipboardFiles,
+          destPath,
+          clipboard.operation!,
+          strategy,
+          (pct, lbl) => {
+            dispatch({
+              type: 'UPDATE_TASK',
+              id: opId,
+              updates: { progress: pct, label: `${lbl} (${pct}%)` }
+            });
+          }
+        );
+
+        if (result.success) {
+          dispatch({ type: 'UPDATE_TASK', id: opId, updates: { status: 'completed', progress: 100 } });
+          showToast({ message: `${isCopy ? 'Copied' : 'Moved'} successfully` });
         } else {
-          await opsApi.moveItems(sources, destPath, opId);
+          dispatch({ type: 'UPDATE_TASK', id: opId, updates: { status: 'failed', error: result.error } });
+          showToast({ message: `Paste failed: ${result.error}` });
         }
-        dispatch({ type: 'UPDATE_TASK', id: opId, updates: { status: 'completed', progress: 100 } });
-        showToast({ message: `${isCopy ? 'Copied' : 'Moved'} ${sources.length} item${sources.length > 1 ? 's' : ''}` });
       } catch (e: any) {
         dispatch({ type: 'UPDATE_TASK', id: opId, updates: { status: 'failed', error: String(e) } });
-        showToast({ message: `${isCopy ? 'Copy' : 'Move'} failed: ${e}` });
+        showToast({ message: `Paste failed: ${e}` });
       }
       loadDir(destPath);
     }, 0);
@@ -346,6 +524,28 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
   const doDelete = async (items: FileEntry[], permanent: boolean) => {
     if (activeTab.path === TRASH_PATH) {
       showToast({ message: 'Individual item deletion in Trash is not supported. Use Empty Trash.' });
+      return;
+    }
+
+    if (activeTab.path.startsWith('pool://')) {
+      const parts = activeTab.path.substring('pool://'.length).split('/');
+      const poolId = parts[0];
+      const idsToDelete = new Set(items.map(e => e.id));
+      setListing(prev => prev ? { ...prev, entries: prev.entries.filter(en => !idsToDelete.has(en.id)) } : null);
+      try {
+        for (const item of items) {
+          if (item.isDir) {
+            await dataPoolManager.deleteFolder(poolId, item.id);
+          } else {
+            await dataPoolManager.deleteFile(poolId, item.id);
+          }
+        }
+        dispatch({ type: 'CLEAR_SELECTION' });
+        showToast({ message: `Deleted ${items.length} pool item${items.length > 1 ? 's' : ''}` });
+      } catch (err: any) {
+        showToast({ message: `Pool delete failed: ${err.message || String(err)}` });
+        loadDir(activeTab.path);
+      }
       return;
     }
 
@@ -403,6 +603,23 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
     }
 
     setRenamingId(null);
+    if (activeTab.path.startsWith('pool://')) {
+      const parts = activeTab.path.substring('pool://'.length).split('/');
+      const poolId = parts[0];
+      try {
+        if (entry.isDir) {
+          await dataPoolManager.renameFolder(poolId, entry.id, newName);
+        } else {
+          await dataPoolManager.renameFile(poolId, entry.id, newName);
+        }
+        showToast({ message: `Renamed to "${newName}"` });
+      } catch (err: any) {
+        showToast({ message: `Rename failed: ${err.message || String(err)}` });
+      }
+      loadDir(activeTab.path);
+      return;
+    }
+
     try {
       const nextPath = await opsApi.renameItem(entry.path, newName);
       pushUndo({
@@ -475,6 +692,20 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
       return;
     }
     
+    if (activeTab.path.startsWith('pool://')) {
+      const parts = activeTab.path.substring('pool://'.length).split('/');
+      const poolId = parts[0];
+      const folderId = parts[1] || null;
+      try {
+        await dataPoolManager.createFolder(poolId, name, folderId);
+        showToast({ message: `Created folder "${name}"` });
+        loadDir(activeTab.path);
+      } catch (err: any) {
+        showToast({ message: `Failed to create folder: ${err.message || String(err)}` });
+      }
+      return;
+    }
+
     if (activeTab.path.startsWith('mesh://')) {
       showToast({ message: 'Cloud folders must be created via the Mesh API (Coming soon in full Mesh architecture).' });
       return;
@@ -575,6 +806,8 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
     onDelete: handleDelete,
     onRename: handleRename,
     onNewFolder: handleNewFolder,
+    onNewFile: handleNewFile,
+    onOpen: handleOpen,
     onSelectAll: handleSelectAll,
     onRefresh: handleRefresh,
     onOpenSpotlight,
@@ -809,6 +1042,9 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
               if (selectedEntries.length === 1) {
                 dispatch({ type: 'SET_DIALOG', dialog: { kind: 'properties', entry: selectedEntries[0] } });
               }
+            }}
+            onShare={(entry) => {
+              dispatch({ type: 'SET_DIALOG', dialog: { kind: 'share', entry } });
             }}
             onOpen={handleOpen}
             onOpenWith={(entry) => {

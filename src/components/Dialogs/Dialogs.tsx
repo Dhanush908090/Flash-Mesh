@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { File, Folder } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import type { FileEntry } from '../../types';
+import { ShareModal } from './ShareModal';
 
 // ─── Rename Dialog ────────────────────────────────────────────────────────────
 
@@ -149,7 +151,9 @@ export function PropertiesDialog({ entry, onClose }: PropertiesDialogProps) {
     <div className="dialog-backdrop" onClick={onClose}>
       <div className="dialog" onClick={e => e.stopPropagation()}>
         <div className="dialog__title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 28 }}>{entry.isDir ? '📁' : '📄'}</span>
+          <span className="dialog__title-icon">
+            {entry.isDir ? <Folder size={22} /> : <File size={22} />}
+          </span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
         </div>
         <div className="preview-panel__meta" style={{ margin: '16px 0' }}>
@@ -260,6 +264,7 @@ export function DialogManager({
         />
       )}
       {dialog.kind === 'properties' && <PropertiesDialog entry={dialog.entry} onClose={close} />}
+      {dialog.kind === 'share' && <ShareModal entry={dialog.entry} onClose={close} />}
       {dialog.kind === 'dragDrop' && (
         <DragDropDialog
           sourcePaths={dialog.sourcePaths}

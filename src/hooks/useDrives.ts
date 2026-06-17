@@ -39,7 +39,7 @@ export function formatDiskSize(bytes: number): string {
 }
 
 export function getDriveIcon(drive: DriveInfo): string {
-  if (drive.isRemovable) return '💾';
-  if (drive.driveType?.toLowerCase().includes('hdd')) return '🖴';
-  return '💿';
+  if (drive.isRemovable) return 'removable';
+  if (drive.driveType?.toLowerCase().includes('hdd')) return 'hard-drive';
+  return 'drive';
 }

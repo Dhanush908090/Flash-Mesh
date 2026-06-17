@@ -330,3 +330,17 @@ pub fn open_item_with(app: tauri::AppHandle, path: String) -> Result<(), String>
         Ok(())
     }
 }
+
+#[tauri::command]
+pub fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("Failed to read binary file {}: {}", path, e))
+}
+
+#[tauri::command]
+pub fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&path, contents).map_err(|e| format!("Failed to write binary file {}: {}", path, e))
+}
+

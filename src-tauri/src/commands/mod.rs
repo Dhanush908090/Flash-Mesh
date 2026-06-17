@@ -1,7 +1,10 @@
 // commands module
 pub mod drives;
 pub mod fs;
+pub mod oauth;
 pub mod operations;
 pub mod platform;
+pub mod pool;
 pub mod search;
 pub mod terminal;
+pub mod share;

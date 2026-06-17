@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Copy, Scissors, Clipboard, Trash2, Pencil, FolderPlus, FilePlus,
-  Info, ExternalLink, RotateCcw, Grid3X3, List, TerminalSquare
+  Info, ExternalLink, RotateCcw, Grid3X3, List, TerminalSquare, Wifi
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import type { FileEntry } from '../../types';
+import { RadialContextMenu } from './RadialContextMenu';
 
 interface MenuItem {
   kind: 'item';
@@ -38,12 +39,13 @@ interface ContextMenuProps {
   onOpenWith: (entry: FileEntry) => void;
   onRefresh: () => void;
   onOpenTerminal: () => void;
+  onShare: (entry: FileEntry) => void;
 }
 
 export function ContextMenu({
   x, y, entries, isBackground,
   onCopy, onCut, onPaste, onDelete, onRename,
-  onNewFolder, onNewFile, onProperties, onOpen, onOpenWith, onRefresh, onOpenTerminal,
+  onNewFolder, onNewFile, onProperties, onOpen, onOpenWith, onRefresh, onOpenTerminal, onShare,
 }: ContextMenuProps) {
   const { state, dispatch } = useApp();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,10 @@ export function ContextMenu({
 
     if (!multiSelect) {
       items.push({ kind: 'item', id: 'rename', label: 'Rename', icon: <Pencil size={14} />, shortcut: 'F2', action: onRename });
+    }
+
+    if (entries.length === 1) {
+      items.push({ kind: 'item', id: 'share', label: 'Share / Stream via Wi-Fi', icon: <Wifi size={14} />, action: () => onShare(entries[0]) });
     }
 
     items.push({ kind: 'separator' });
@@ -122,6 +128,30 @@ export function ContextMenu({
     }
   }
 
+  // ── Radial Omnitrix Mode ────────────────────────────────────────────────
+  if (state.settings.omnitrixMenu) {
+    const radialItems = items
+      .filter((item): item is MenuItem => item.kind === 'item')
+      .map(item => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        danger: item.danger,
+        disabled: item.disabled,
+        action: item.action,
+      }));
+
+    return (
+      <RadialContextMenu
+        x={x}
+        y={y}
+        items={radialItems}
+        onClose={() => dispatch({ type: 'HIDE_CONTEXT_MENU' })}
+      />
+    );
+  }
+
+  // ── Standard List Menu ──────────────────────────────────────────────────
   return (
     <div ref={menuRef} className="context-menu" style={style}>
       {items.map((item, i) =>
