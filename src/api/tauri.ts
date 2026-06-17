@@ -137,8 +137,9 @@ export const searchApi = {
     query: string,
     showHidden = false,
     limit = 100,
+    level = 1,
   ): Promise<SearchResult[]> =>
-    invoke('search_files', { rootPath, query, showHidden, limit }),
+    invoke('search_files', { rootPath, query, showHidden, limit, level }),
 
   listRecentFiles: (
     paths: string[],

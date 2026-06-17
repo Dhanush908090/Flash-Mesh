@@ -93,6 +93,7 @@ interface AppState {
   currentView: 'files' | 'cloud' | 'pet' | 'pool';
   tasks: Task[];
   filters: FileFilters;
+  searchLevel: number;
 }
 
 type Action =
@@ -136,7 +137,8 @@ type Action =
   | { type: 'REMOVE_TASK'; id: string }
   | { type: 'TOGGLE_FILTER_MONTH'; month: string }
   | { type: 'TOGGLE_FILTER_TYPE'; fileType: string }
-  | { type: 'CLEAR_FILTERS' };
+  | { type: 'CLEAR_FILTERS' }
+  | { type: 'SET_SEARCH_LEVEL'; level: number };
 
 function reducer(state: AppState, action: Action): AppState {
   const activeTab = state.tabs.find(t => t.id === state.activeTabId)!;
@@ -341,6 +343,8 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'CLEAR_FILTERS':
       return { ...state, filters: { months: [], types: [] } };
+    case 'SET_SEARCH_LEVEL':
+      return { ...state, searchLevel: action.level };
     default:
       return state;
   }
@@ -438,6 +442,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     currentView: 'files',
     tasks: [],
     filters: { months: [], types: [] },
+    searchLevel: 1,
   });
 
   useEffect(() => {

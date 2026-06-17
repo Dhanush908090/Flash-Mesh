@@ -3361,3 +3361,97 @@ textarea:focus {
   text-align: center;
 }
 
+/* ── Search Bar Pills & Level Button Styles ─────────────────────────────────── */
+.search-bar-container {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 320px;
+}
+
+.search-bar__pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.search-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: capitalize;
+  user-select: none;
+}
+
+.search-pill__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--dur-fast);
+}
+
+.search-pill__close:hover {
+  opacity: 1;
+}
+
+.search-level-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: all var(--dur-fast) ease;
+}
+
+.search-level-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* L2 purple theme */
+.search-level-btn--2 {
+  background: rgba(168, 85, 247, 0.08) !important;
+  color: #c084fc !important;
+  border-color: rgba(168, 85, 247, 0.25) !important;
+}
+.search-level-btn--2:hover {
+  background: rgba(168, 85, 247, 0.15) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+/* L3 pink theme */
+.search-level-btn--3 {
+  background: rgba(236, 72, 153, 0.08) !important;
+  color: #f472b6 !important;
+  border-color: rgba(236, 72, 153, 0.25) !important;
+}
+.search-level-btn--3:hover {
+  background: rgba(236, 72, 153, 0.15) !important;
+  border-color: rgba(236, 72, 153, 0.4) !important;
+}
+
+

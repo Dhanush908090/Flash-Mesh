@@ -240,13 +240,13 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
     searchDebounce.current = setTimeout(async () => {
       try {
         const root = activeTab.path === RECENT_PATH ? homeDir : activeTab.path;
-        const results = await searchApi.searchFiles(root, state.searchQuery, state.settings.showHiddenFiles, 200);
+        const results = await searchApi.searchFiles(root, state.searchQuery, state.settings.showHiddenFiles, 200, state.searchLevel);
         setSearchResults(results);
       } catch {
         setSearchResults([]);
       }
     }, 250);
-  }, [state.searchQuery, state.isSearching, activeTab.path, state.settings.showHiddenFiles, homeDir]);
+  }, [state.searchQuery, state.isSearching, activeTab.path, state.settings.showHiddenFiles, homeDir, state.searchLevel]);
 
   useEffect(() => {
     if (listing?.entries) {
