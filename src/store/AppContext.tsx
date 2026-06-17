@@ -124,6 +124,7 @@ type Action =
   | { type: 'TOGGLE_SIDEBAR' }
   | { type: 'SET_SIDEBAR_COLLAPSED'; value: boolean }
   | { type: 'TOGGLE_PREVIEW' }
+  | { type: 'SET_PREVIEW_VISIBLE'; value: boolean }
   | { type: 'SET_SEARCH_QUERY'; query: string }
   | { type: 'SET_IS_SEARCHING'; value: boolean }
   | { type: 'UPDATE_SETTINGS'; settings: Partial<AppSettings> }
@@ -300,6 +301,9 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, sidebarCollapsed: action.value };
     case 'TOGGLE_PREVIEW':
       return { ...state, previewVisible: !state.previewVisible };
+    case 'SET_PREVIEW_VISIBLE':
+      if (state.previewVisible === action.value) return state;
+      return { ...state, previewVisible: action.value };
     case 'SET_SEARCH_QUERY':
       return { ...state, searchQuery: action.query };
     case 'SET_IS_SEARCHING':

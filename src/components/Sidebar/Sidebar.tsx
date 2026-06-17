@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp } from '../../store/AppContext';
 import { SidebarNav } from './SidebarNav';
-import { FileTree } from './FileTree';
 import { FilterBox } from './FilterBox';
 import { TaskPanel } from './TaskPanel';
 import logoSrc from '/logo.png';
@@ -19,7 +18,6 @@ export function Sidebar() {
         {!collapsed && <span className="sidebar__logo-text">FlashMesh</span>}
       </div>
       <SidebarNav />
-      {!collapsed && <FileTree />}
       {!collapsed && <FilterBox />}
       <TaskPanel />
     </aside>

@@ -62,6 +62,7 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
   const hoverOpenOrigin = useRef<{ x: number; y: number } | null>(null);
   const lastDragTime = useRef<number>(0);
   const isDraggingInternal = useRef<boolean>(false);
+  const lastSelectedIdRef = useRef<string | null>(null);
   
   const { handlers: dragHandlers, dragStyles } = useDragSelect(ids => {
     dispatch({ type: 'SET_SELECTION', ids });
@@ -320,11 +321,14 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
     const selected = entries.find(e => activeTab.selection.has(e.id)) ?? null;
     onPreviewEntryChange(selected);
     if (selected && !selected.isDir) {
-      if (!state.previewVisible) {
-        dispatch({ type: 'TOGGLE_PREVIEW' });
+      if (selected.id !== lastSelectedIdRef.current) {
+        lastSelectedIdRef.current = selected.id;
+        dispatch({ type: 'SET_PREVIEW_VISIBLE', value: true });
       }
+    } else {
+      lastSelectedIdRef.current = null;
     }
-  }, [entries, activeTab.selection, onPreviewEntryChange, state.previewVisible, dispatch]);
+  }, [entries, activeTab.selection, onPreviewEntryChange, dispatch]);
 
   useEffect(() => {
     setFocusedIndex(0);
