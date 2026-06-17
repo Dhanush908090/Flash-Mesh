@@ -269,9 +269,44 @@ export function FilePane({ onOpenSpotlight, onPreviewEntryChange }: FilePaneProp
     return listing?.entries ?? [];
   }, [state.isSearching, state.searchQuery, searchResults, listing?.entries, mstIndex]);
 
+  const getFileTypeCategory = (ext: string | null): string => {
+    if (!ext) return 'other';
+    const e = ext.toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'avif', 'heic'].includes(e)) return 'image';
+    if (['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv'].includes(e)) return 'video';
+    if (['mp3', 'wav', 'flac', 'ogg', 'm4a', 'aac', 'wma'].includes(e)) return 'audio';
+    if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'md', 'rtf', 'odt', 'ods'].includes(e)) return 'document';
+    if (['ts', 'tsx', 'js', 'jsx', 'rs', 'go', 'py', 'c', 'cpp', 'h', 'html', 'css', 'json', 'yaml', 'toml', 'sh', 'bat', 'ps1', 'xml'].includes(e)) return 'code';
+    return 'other';
+  };
+
+  const filteredRawEntries = useMemo(() => {
+    const isFiltersActive = state.filters.months.length > 0 || state.filters.types.length > 0;
+    if (!isFiltersActive) return rawEntries;
+
+    return rawEntries.filter(entry => {
+      if (entry.isDir) return true;
+
+      // Type match
+      if (state.filters.types.length > 0) {
+        const cat = getFileTypeCategory(entry.extension);
+        if (!state.filters.types.includes(cat)) return false;
+      }
+
+      // Month match
+      if (state.filters.months.length > 0) {
+        if (!entry.modified) return false;
+        const month = entry.modified.substring(5, 7); // YYYY-MM
+        if (!state.filters.months.includes(month)) return false;
+      }
+
+      return true;
+    });
+  }, [rawEntries, state.filters]);
+
   const entries = useMemo(
-    () => sortEntries(rawEntries, activeTab.sortConfig.field, activeTab.sortConfig.direction),
-    [rawEntries, activeTab.sortConfig]
+    () => sortEntries(filteredRawEntries, activeTab.sortConfig.field, activeTab.sortConfig.direction),
+    [filteredRawEntries, activeTab.sortConfig]
   );
 
   const selectedEntries = useMemo(

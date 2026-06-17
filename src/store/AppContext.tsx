@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 import type {
   TabState, ViewMode, SortConfig, ClipboardState,
   AppSettings, DialogType, ContextMenuState, FileEntry, FileOperation,
-  PlatformCapabilities, Task
+  PlatformCapabilities, Task, FileFilters
 } from '../types';
 import { getBaseName, getParentPath, normalizePath } from '../utils/path';
 
@@ -92,6 +92,7 @@ interface AppState {
   platform: PlatformCapabilities;
   currentView: 'files' | 'cloud' | 'pet' | 'pool';
   tasks: Task[];
+  filters: FileFilters;
 }
 
 type Action =
@@ -132,7 +133,10 @@ type Action =
   | { type: 'SET_VIEW'; view: 'files' | 'cloud' | 'pet' | 'pool' }
   | { type: 'ADD_TASK'; task: Task }
   | { type: 'UPDATE_TASK'; id: string; updates: Partial<Task> }
-  | { type: 'REMOVE_TASK'; id: string };
+  | { type: 'REMOVE_TASK'; id: string }
+  | { type: 'TOGGLE_FILTER_MONTH'; month: string }
+  | { type: 'TOGGLE_FILTER_TYPE'; fileType: string }
+  | { type: 'CLEAR_FILTERS' };
 
 function reducer(state: AppState, action: Action): AppState {
   const activeTab = state.tabs.find(t => t.id === state.activeTabId)!;
@@ -321,6 +325,22 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, tasks: state.tasks.map(t => t.id === action.id ? { ...t, ...action.updates } : t) };
     case 'REMOVE_TASK':
       return { ...state, tasks: state.tasks.filter(t => t.id !== action.id) };
+    case 'TOGGLE_FILTER_MONTH': {
+      const exists = state.filters.months.includes(action.month);
+      const months = exists
+        ? state.filters.months.filter(m => m !== action.month)
+        : [...state.filters.months, action.month];
+      return { ...state, filters: { ...state.filters, months } };
+    }
+    case 'TOGGLE_FILTER_TYPE': {
+      const exists = state.filters.types.includes(action.fileType);
+      const types = exists
+        ? state.filters.types.filter(t => t !== action.fileType)
+        : [...state.filters.types, action.fileType];
+      return { ...state, filters: { ...state.filters, types } };
+    }
+    case 'CLEAR_FILTERS':
+      return { ...state, filters: { months: [], types: [] } };
     default:
       return state;
   }
@@ -417,6 +437,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     platform: DEFAULT_PLATFORM_CAPABILITIES,
     currentView: 'files',
     tasks: [],
+    filters: { months: [], types: [] },
   });
 
   useEffect(() => {

@@ -152,3 +152,9 @@ export interface ContextMenuState {
   targetEntries: FileEntry[];
   isBackground: boolean;
 }
+
+export interface FileFilters {
+  months: string[];
+  types: string[];
+}
+
